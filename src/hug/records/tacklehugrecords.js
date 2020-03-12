@@ -25,7 +25,7 @@ const TackleResult = {
 
 const INSERT_TACKLE_DATA = `INSERT INTO ${TABLE_NAME} (record, tackleResult, timeLeft) VALUES(?, ?, ?)`
 
-const { query, setupDatabase } = require("../util/sql")
+const { query, setupDatabase } = require("../../util/sql/sql")
 
 const databaseCreated = setupDatabase(CREATE_TABLE)
 

@@ -1,51 +1,8 @@
 //@ts-check
 
-/**
- * @typedef {Object} HugAction
- * @property {string} id - Action name in the database
- * @property {number} energy - Amount of energy required to perform the action
- * @property {string} [group] - The group this action belongs to
- */
-
-const { query, setupDatabase } = require("../util/sql.js")
+const { query, setupDatabase } = require("../../util/sql/sql")
 const tacklehugRecords = require("./tacklehugrecords")
-
-/**
- * @enum {HugAction}
- */
-const Action = {
-    HUG: { // actually working
-        id: "hug",
-        energy: 0,
-        group: "hug"
-    },
-    TACKLE_HUG: { // actually working
-        id: "tacklehug",
-        energy: 10,
-        group: "hug"
-    },
-    PAT: { // all below gonna be implemented soon(tm)
-        id: "pat",
-        energy: 0
-    },
-    GLOMP: {
-        id: "glomp",
-        energy: 5,
-        group: "hug"
-    },
-    HIGH_FIVE: {
-        id: "highfive",
-        energy: 2
-    },
-    FIST_BUMP: {
-        id: "fistbump",
-        energy: 1
-    },
-    POKE: {
-        id: "poke",
-        energy: 1 // maybe it detects the message above as the person you're poking
-    }
-}
+const hugAction = require("../action/hugaction")
 
 const TABLE_NAME = "hug_records"
 
@@ -79,7 +36,7 @@ const ready = Promise.all([setupDatabase(CREATE_TABLE), tacklehugRecords.databas
  * @param {string} guildId 
  * @param {string} senderId 
  * @param {string} affectedId 
- * @param {HugAction} action
+ * @param {hugAction.HugActionData} action
  * @returns {Promise<any>} The result of the insert
  */
 async function insertRecord(guildId, senderId, affectedId, action) {
@@ -94,7 +51,7 @@ async function insertRecord(guildId, senderId, affectedId, action) {
  * @param {string} guildId 
  * @param {string} senderId 
  * @param {string} affectedId 
- * @param {HugAction} action
+ * @param {hugAction.HugActionData} action
  * @returns {Promise<any>} The result of the insert
  */
 async function logAction(guildId, senderId, affectedId, action) {
@@ -109,7 +66,7 @@ async function logAction(guildId, senderId, affectedId, action) {
  * @param {string} guildId 
  * @param {string} checkingId
  * @param {boolean} sent - Whether we're checking the amount we sent or received
- * @param {HugAction} action 
+ * @param {hugAction.HugActionData} action 
  * @param {boolean} [group] - Whether to count the entire group
  * @returns {Promise<number>} Number of actions sent/received
  */
@@ -119,11 +76,11 @@ async function getTotalActions(guildId, checkingId, sent, action, group = false)
         let actionIds = action.id
         if (group && action.group) {
             actionIds = []
-            for (let k in Action) {
-                /**@type {HugAction} */
-                const hugAction = Action[k]
-                if (hugAction.group == action.group)
-                    actionIds.push(hugAction.id)
+            for (let k in hugAction.HugActions) {
+                /**@type {hugAction.HugActionData} */
+                const action = hugAction.HugActions[k]
+                if (action.group == action.group)
+                    actionIds.push(action.id)
             }
         }
         const result = await query(COUNT_RECORD(sent), [guildId, checkingId, actionIds])
@@ -137,6 +94,5 @@ async function getTotalActions(guildId, checkingId, sent, action, group = false)
 module.exports = {
     ready,
     logAction,
-    getTotalActions,
-    Action
+    getTotalActions
 }

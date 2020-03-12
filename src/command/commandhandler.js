@@ -2,7 +2,10 @@
 
 const Discord = require("discord.js")
 const config = require("../config");
-const lang = require("../lang/lang.js")
+
+const rootLang = require("../lang/lang")
+const isBanned = require("../banned")
+const warned = require("../warned")
 
 /**
  * @callback call
@@ -29,13 +32,19 @@ const commands = []
 
 /**
  * @param {Discord.Client} client
+ * @param {Command} command 
+ */
+function addCommand(client, command) {
+    if (command.setup) command.setup(client)
+    commands.push(command)
+}
+
+/**
+ * @param {Discord.Client} client
  * @param {string} name 
  */
 function registerCommand(client, name) {
-    /**@type {Command} */
-    const command = require("./cmds/" + name)
-    if (command.setup) command.setup(client)
-    commands.push(command)
+    addCommand(client, require("./cmds/" + name))
 }
 
 /**
@@ -65,36 +74,51 @@ function findCommand(cmd) {
     }
 }
 
-/**
- * @param {Discord.Client} client
- */
-module.exports.setup = (client) => {
-    client.on("message", message => {
-        const possibleText = []
-        commands.forEach(cmd => possibleText.push(config.prefix + cmd.cmd))
-        if (message.author.bot
-            && message.embeds[0]
-            && message.embeds[0].description
-            && possibleText.filter(it => message.embeds[0].description.toLowerCase().includes(it)).length > 0) {
-            if (message.deletable) message.delete()
-            return
-        }
-        if (message.author.bot)
-            return;
+module.exports = {
+    commands,
+    /**
+     * @param {Discord.Client} client
+     */
+    setup(client) {
+        client.on("message", message => {
+            const possibleText = []
+            commands.forEach(cmd => possibleText.push(config.prefix + cmd.cmd))
+            if (message.author.bot
+                && message.embeds[0]
+                && message.embeds[0].description
+                && possibleText.filter(it => message.embeds[0].description.toLowerCase().includes(it)).length > 0) {
+                if (message.deletable) message.delete()
+                return
+            }
+            if (message.author.bot)
+                return;
 
-        if (!message.content.toLowerCase().startsWith(config.prefix)) {
-            return
-        }
+            if (!message.content.toLowerCase().startsWith(config.prefix)) {
+                return;
+            }
 
-        const spaces = message.content.split(" ");
-        const cmd = spaces[0].toLowerCase().substring(1, spaces[0].length).replace(/[^\w]/gm, "")
-        const args = [];
-        for (let k in spaces) {
-            if (parseInt(k) > 0) args.push(spaces[k]);
-        }
-        const command = findCommand(cmd)
-        if (command) command.call(message, args)
-    });
+            const spaces = message.content.split(" ");
+            const cmd = spaces[0].toLowerCase().substring(1, spaces[0].length).replace(/[^\w]/gm, "")
+            const args = [];
+            for (let k in spaces) {
+                if (parseInt(k) > 0) args.push(spaces[k]);
+            }
+            const command = findCommand(cmd)
+            if (command) {
+                if (isBanned(message.author.id)) {
+                    message.channel.send(rootLang("banned", "userTag", message.author.toString()))
+                } else {
+                    command.call(message, args).catch(e => console.warn("Error handling command " + cmd, e)).then(() => {
+                        if (warned.toWarn.find(it => it == message.author.id) && message.channel instanceof Discord.TextChannel) {
+                            warned.doWarning(message.author, message.channel)
+                        }
+                    })
 
-    registerCommands(client, "hugcmd", "hugstatscmd", "tacklehugcmd", "energycmd", "patcmd", "hughelpcmd")
+                }
+            }
+        });
+
+        registerCommands(client, "tacklehugcmd", "energycmd", "patcmd", "hughelpcmd", "giftestcmd", "flirtcmd", "gnomepointcmd", "heartcmd", "adultcmd")
+    },
+    addCommand
 }

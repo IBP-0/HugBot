@@ -1,7 +1,13 @@
 //@ts-check
 const TABLE_NAME = "hug_energy"
-const { query } = require("../util/sql.js")
+const { query } = require("../../util/sql/sql")
 const energyapi = require("./energyapi")
+
+/**
+ * Only decrement the energy of those who have more than
+ * this specific amount of energy
+ */
+const MINIMUM_ENERGY = 10
 
 const CREATE_TABLE = `CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
     guildId BIGINT NOT NULL,
@@ -20,7 +26,8 @@ const MODIFY_ENERGY = increasing => `INSERT INTO ${TABLE_NAME} (guildId, userId,
 
 const GET_ENERGY = `SELECT energy, lastDecrement FROM ${TABLE_NAME} WHERE guildId = ? AND userId = ?`
 
-const GET_TO_DECREMENT = () => `SELECT guildId, userId, energy FROM ${TABLE_NAME} WHERE ${new Date().getTime()} - lastDecrement >= ? AND energy > 0;`
+/**@param {number} minimum */
+const GET_TO_DECREMENT = (minimum) => `SELECT guildId, userId, energy FROM ${TABLE_NAME} WHERE ${new Date().getTime()} - lastDecrement >= ? AND energy > ${minimum};`
 const DECREMENT_FOR_GUILD = `UPDATE ${TABLE_NAME} SET energy = energy - 1, lastDecrement = ? WHERE guildId = ? AND userId IN (?)`
 
 const ready = query(CREATE_TABLE, [])
@@ -64,7 +71,7 @@ async function modifyEnergy(guildId, userId, amount, increasing) {
  * @param {number} decrementAfter - Time after last decrement to check
  */
 async function getToDecrement(decrementAfter) {
-    const results = await query(GET_TO_DECREMENT(), [decrementAfter])
+    const results = await query(GET_TO_DECREMENT(MINIMUM_ENERGY), [decrementAfter])
     const ret = {}
     results.forEach(packet => {
         /**@type {Array<Object>} */
